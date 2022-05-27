@@ -1,0 +1,95 @@
+from sklearn.datasets import load_iris
+from sklearn import datasets
+import matplotlib.pyplot as plt
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sn
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+from sklearn.model_selection import cross_val_score
+
+df = pd.read_csv("shots_2021.csv")
+
+df['event'] = df['event'].replace(['SHOT','MISS','GOAL'],['0','2','1'])
+df['shotType'] = df['shotType'].replace(['WRIST','SNAP','SLAP','BACK','DEFL','TIP','WRAP'],['0','1','2','3','4','5','6'])
+df['playerPositionThatDidEvent'] = df['playerPositionThatDidEvent'].replace(['C','L','R','D','G'],['0','1','2','3','4'])
+df['shooterLeftRight'] = df['shooterLeftRight'].replace(['R','L'],['0','1'])
+df['location'] = df['location'].replace(['HOMEZONE','AWAYZONE','Neu. Zone'],['0','1','2'])
+
+#fillNA
+df.shotType = df.shotType.fillna('7')
+#convert to Numeric
+df['shotType'] = pd.to_numeric(df['shotType'])
+
+
+#ambigious (home/away, period)
+#player model (postion, left/right)
+#print(df.dtypes)
+
+#pivot
+a= pd.pivot_table(df,values='goal',index=['location'], aggfunc=np.sum)
+df2=a.reset_index()
+#print(df2)
+
+#plot Graph to see trends
+#plt.bar(x,y)
+#plt.xlabel('Shot Type')
+#plt.ylabel('Goal')
+#plt.legend()
+#plt.show()
+
+#what to use in model (shot angle, shot distance, shot type,location)
+#Create Shot Model
+df['arenaAdjustedShotDistance'] = pd.to_numeric(df['arenaAdjustedShotDistance'])
+df['shotAngleAdjusted'] = pd.to_numeric(df['shotAngleAdjusted'])
+
+x= df[['arenaAdjustedShotDistance', 'shotAngleAdjusted','shotType','location']]
+y= df['goal']
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(x,y,train_size=0.8)
+
+from sklearn.linear_model import LogisticRegression
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+#print(model.score(X_test,y_test))
+#print(model.predict_proba([[1,27,0,0]]))
+
+#from sklearn.ensemble import RandomForestClassifier
+#model2 = RandomForestClassifier(n_estimators=40)
+#model2.fit(X_train, y_train)
+
+#print(model2.score(X_test,y_test))
+#print(model2.predict_proba([[1,27,0,0]]))
+
+#What Auston Matthews does
+dfAM =df.loc[(df['shooterPlayerId'] == 8479318)]
+dfAM = dfAM.reset_index()
+dfAM = dfAM.drop(["index"],axis='columns')
+
+x1= dfAM[['arenaAdjustedShotDistance', 'shotAngleAdjusted','shotType','location']]
+y1= dfAM['goal']
+
+ypredicted = (model.predict_proba(x1))
+
+df_new = pd.concat([dfAM[['arenaAdjustedShotDistance', 'shotAngleAdjusted','shotType','location','goal']], pd.DataFrame(ypredicted)], axis=1)
+print(df_new)
+
+df_new.to_csv('AMModel.csv', index=False)
+
+#All Players
+x1= df[['arenaAdjustedShotDistance', 'shotAngleAdjusted','shotType','location']]
+y1= df['goal']
+
+ypredicted = (model.predict_proba(x1))
+
+df_new = pd.concat([df[['shotID','shooterName','arenaAdjustedShotDistance', 'shotAngleAdjusted','shotType','location','goal']], pd.DataFrame(ypredicted)], axis=1)
+print(df_new)
+
+df_new.to_csv('AllModel.csv', index=False)
